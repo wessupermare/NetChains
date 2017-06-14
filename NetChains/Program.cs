@@ -1,16 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace NetChains
 {
     class Program
     {
+        const string VERSIONSTRING = "1.0.0";
         static void Main(string[] args)
         {
-            Console.WriteLine();
+            Console.WriteLine($"Welcome to the NetChains interpreter!\n© 2017 Weston Sleeman, version {VERSIONSTRING}");
 
             while (true)
             {
@@ -22,15 +20,15 @@ namespace NetChains
 
         private static string Execute(string[] function)
         {
-            Type type = Type.GetType("System." + function[0]);
-
             try
             {
+                Type type = Type.GetType("System." + function[0].TrimStart('!'));
+
                 int colons = function.Length;
                 object obj = null;
-                while (colons > 2)
+                while (colons > 1)
                 {
-                    string curFunc = function[function.Length - colons];
+                    string curFunc = function[function.Length - (colons - 1)];
                     if (curFunc.StartsWith("!"))
                     {
                         type = Type.GetType("System." + curFunc.TrimStart('!'));
@@ -43,25 +41,37 @@ namespace NetChains
                         }
                         catch
                         {
-                            string[] args = null;
+                            List<object> args = null;
+                            Type[] argTypes = null;
 
                             if (curFunc.Contains("("))
                             {
-                                args = curFunc.Substring(curFunc.IndexOf('(') + 1, curFunc.IndexOf(')') - (curFunc.IndexOf('(') + 1)).Replace(", ", ",").Split(',');
+                                args = new List<object>();
+                                args.AddRange(curFunc.Substring(curFunc.IndexOf('(') + 1, curFunc.IndexOf(')') - (curFunc.IndexOf('(') + 1)).Replace(", ", ",").Split(','));
                                 curFunc = curFunc.Substring(0, curFunc.IndexOf('('));
+                                argTypes = new Type[args.Count];
+
+                                for (ushort cntr = 0; cntr < args.Count; ++cntr)
+                                {
+                                    if (int.TryParse((string)args[cntr], out int catchval))
+                                    {
+                                        argTypes[cntr] = typeof(int);
+                                        args[cntr] = catchval;
+                                    }
+                                    else argTypes[cntr] = typeof(string);
+                                }
                             }
 
-                            obj = type.GetMethod(curFunc).Invoke(obj, args);
+                            obj = type.GetMethod(curFunc, argTypes).Invoke(obj, args.ToArray());
                         }
                     }
                     --colons;
                 }
-                return type.GetProperty(function[function.Length - 1]).GetValue(obj).ToString();
+                return obj?.ToString();
             }
-            catch
+            catch (Exception ex)
             {
-                string retval = type.GetMethod(function[1]).Invoke(null, null).ToString();
-                return retval;
+                return $"Error: {ex.Message}";
             }
         }
     }
