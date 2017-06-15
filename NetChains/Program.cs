@@ -7,7 +7,7 @@ namespace NetChains
 {
     class Program
     {
-        const string VERSIONSTRING = "1.2.0";
+        const string VERSIONSTRING = "1.2.1";
         static void Main(string[] args)
         {
             Console.WriteLine($"Welcome to the NetChains interpreter!\n(c) 2017 Weston Sleeman, version {VERSIONSTRING}\nType \"help\" for a brief tutorial or \"exit\" to return to the shell.");
@@ -120,10 +120,18 @@ namespace NetChains
                             {
                                 if (args == null)
                                 {
-                                    try { obj = type.GetMethod(curFunc).Invoke(obj, null); }
+                                    try
+                                    {
+                                        object tmp = type.GetMethod(curFunc).Invoke(obj, null);
+                                        if (tmp != null) obj = tmp;
+                                    }
                                     catch { throw new Exception($"Function {curFunc} not found."); }
                                 }
-                                else obj = type.GetMethod(curFunc, argTypes).Invoke(obj, args.ToArray());
+                                else
+                                {
+                                    object tmp = type.GetMethod(curFunc, argTypes).Invoke(obj, args.ToArray());
+                                    if (tmp != null) obj = tmp;
+                                }
                             }
                             catch (Exception ex)
                             {
