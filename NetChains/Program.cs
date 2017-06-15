@@ -7,7 +7,7 @@ namespace NetChains
 {
     class Program
     {
-        const string VERSIONSTRING = "1.2.1";
+        const string VERSIONSTRING = "1.2.2";
         static void Main(string[] args)
         {
             Console.WriteLine($"Welcome to the NetChains interpreter!\n(c) 2017 Weston Sleeman, version {VERSIONSTRING}\nType \"help\" for a brief tutorial or \"exit\" to return to the shell.");
@@ -22,12 +22,16 @@ namespace NetChains
                     if (input == "exit")
                         break;
                     else if (input.StartsWith("load"))
-                        ExecFile(input.Substring((input.Length > 4)?5:4));
+                    {
+                        ExecFile(input.Substring((input.Length > 4) ? 5 : 4));
+                        Main(null);
+                        break;
+                    }
                     else if (input == "help")
                     {
                         Console.WriteLine("NetChains is copyrighted by Weston Sleeman, but feel free to redistribute this executable in its original form.");
                         Console.WriteLine("NetChains provides direct access to the .NET framework in a scriptable and chain-y format.");
-                        Console.WriteLine("Commands are formed in chains, linked by a double colon(::). Types are specified with a bang (!).");
+                        Console.WriteLine("Commands are formed in chains, linked by a double colon (::). Types are specified with a bang (!).");
                         Console.WriteLine("\nEx. !ConsoleColor::Red::!Console::ForegroundColor = $::Write(Hello)::ResetColor");
                         Console.WriteLine("(Shifts to System.ConsoleColor; Selects Red; Shifts to System.Console; Sets ForegroundColor to the parent ($, currently Red); Writes Hello to screen; Resets colors)");
                     }
@@ -64,7 +68,9 @@ namespace NetChains
 
         private static string Execute(string[] function)
         {
-            Type type = Type.GetType("System." + function[0].TrimStart('!'));
+            Type type;
+            try { type = Type.GetType("System." + function[0].TrimStart('!')); }
+            catch { throw new Exception("Commands must start with a type."); }
 
             int colons = function.Length;
             object obj = null;
