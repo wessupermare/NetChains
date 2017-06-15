@@ -7,10 +7,10 @@ namespace NetChains
 {
     class Program
     {
-        const string VERSIONSTRING = "1.1.0";
+        const string VERSIONSTRING = "1.2.0";
         static void Main(string[] args)
         {
-            Console.WriteLine($"Welcome to the NetChains interpreter!\n(c) 2017 Weston Sleeman, version {VERSIONSTRING}");
+            Console.WriteLine($"Welcome to the NetChains interpreter!\n(c) 2017 Weston Sleeman, version {VERSIONSTRING}\nType \"help\" for a brief tutorial or \"exit\" to return to the shell.");
             if (args == null) args = new string[0]{ };
 
             if (args.Length == 0)
@@ -23,6 +23,14 @@ namespace NetChains
                         break;
                     else if (input.StartsWith("load"))
                         ExecFile(input.Substring((input.Length > 4)?5:4));
+                    else if (input == "help")
+                    {
+                        Console.WriteLine("NetChains is copyrighted by Weston Sleeman, but feel free to redistribute this executable in its original form.");
+                        Console.WriteLine("NetChains provides direct access to the .NET framework in a scriptable and chain-y format.");
+                        Console.WriteLine("Commands are formed in chains, linked by a double colon(::). Types are specified with a bang (!).");
+                        Console.WriteLine("\nEx. !ConsoleColor::Red::!Console::ForegroundColor = $::Write(Hello)::ResetColor");
+                        Console.WriteLine("(Shifts to System.ConsoleColor; Selects Red; Shifts to System.Console; Sets ForegroundColor to the parent ($, currently Red); Writes Hello to screen; Resets colors)");
+                    }
 
                     try { Console.WriteLine(Execute(input.Split(new string[] { "::" }, StringSplitOptions.RemoveEmptyEntries))); }
                     catch (Exception ex) { Console.WriteLine(ex.Message); }
@@ -51,7 +59,6 @@ namespace NetChains
                 Console.WriteLine("Press any key to continue...");
                 Console.ReadKey(true);
                 Console.Clear();
-                Main(null);
             }
         }
 
@@ -111,13 +118,17 @@ namespace NetChains
 
                             try
                             {
-                                if (args == null) { obj = type.GetMethod(curFunc).Invoke(obj, null); }
-                                else { obj = type.GetMethod(curFunc, argTypes).Invoke(obj, args.ToArray()); }
+                                if (args == null)
+                                {
+                                    try { obj = type.GetMethod(curFunc).Invoke(obj, null); }
+                                    catch { throw new Exception($"Function {curFunc} not found."); }
+                                }
+                                else obj = type.GetMethod(curFunc, argTypes).Invoke(obj, args.ToArray());
                             }
-                            catch
+                            catch (Exception ex)
                             {
                                 try { obj = type.GetMember(curFunc)[0]; }
-                                catch (Exception ex) { throw new Exception($"Error in phrase {(function.Length - colons) + 1}: {ex.Message}"); }
+                                catch { throw new Exception($"Error in phrase {(function.Length - colons) + 1}: {ex.Message}"); }
                             }
                         }
                     }
@@ -140,7 +151,10 @@ namespace NetChains
                 {
                     if ((string)args[cntr] == "$")
                     {
-                        argTypes[cntr] = parent.ReflectedType;
+                        if (parent.GetType().Name == "MdFieldInfo")
+                            argTypes[cntr] = parent.ReflectedType;
+                        else argTypes[cntr] = parent.GetType();
+
                         args[cntr] = parent;
                     }
                     else
