@@ -8,7 +8,7 @@ namespace NetChains
 {
     class Program
     {
-        const string VERSIONSTRING = "1.2.4";
+        const string VERSIONSTRING = "1.3.0";
         static void Main(string[] args)
         {
             Console.WriteLine($"Welcome to the NetChains interpreter!\n(c) 2017 Weston Sleeman, version {VERSIONSTRING}\nType \"help\" for a brief tutorial or \"exit\" to return to the shell.");
@@ -80,6 +80,14 @@ namespace NetChains
 
                             case ConsoleKey.RightArrow:
                                 Console.CursorLeft += (Console.CursorLeft < 3 + input.Length ? 1 : 0);
+                                break;
+
+                            case ConsoleKey.Home:
+                                Console.CursorLeft = 3;
+                                break;
+
+                            case ConsoleKey.End:
+                                Console.CursorLeft = input.Length + 3;
                                 break;
 
                             case ConsoleKey.Enter:
@@ -196,7 +204,7 @@ namespace NetChains
                         {
                             obj = type.GetProperty(curFunc).GetValue(obj);
                             if (colons == 2)
-                                Console.Write(obj);
+                                Console.WriteLine(obj);
                         }
                         catch
                         {
@@ -287,13 +295,14 @@ namespace NetChains
 
         private static string Unescape (string input)
         {
-            return Regex.Replace(input, @"\\[rnt]", m =>
+            return Regex.Replace(input, @"\\[*]", m =>
             {
                 switch (m.Value)
                 {
                     case @"\r": return "\r";
                     case @"\n": return "\n";
                     case @"\t": return "\t";
+                    case @"\\": return "\\";
                     default: return m.Value;
                 }
             });
