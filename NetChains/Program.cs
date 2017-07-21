@@ -2,13 +2,13 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
-using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 
 namespace NetChains
 {
     class Program
     {
-        const string VERSIONSTRING = "1.2.3";
+        const string VERSIONSTRING = "1.2.4";
         static void Main(string[] args)
         {
             Console.WriteLine($"Welcome to the NetChains interpreter!\n(c) 2017 Weston Sleeman, version {VERSIONSTRING}\nType \"help\" for a brief tutorial or \"exit\" to return to the shell.");
@@ -16,10 +16,87 @@ namespace NetChains
 
             if (args.Length == 0)
             {
+                List<string> history = new List<string>();
+
                 while (true)
                 {
-                    Console.Write("\n>>>");
-                    string input = Console.ReadLine();
+                    int historyIndex = 0;
+                    Console.Write(">>>");
+
+                    ConsoleKeyInfo CKI;
+                    string input = "";
+                    bool done = false;
+                    history.Insert(0, "");
+                    while (!done)
+                    {
+                        CKI = Console.ReadKey(true);
+                        switch (CKI.Key)
+                        {
+                            case ConsoleKey.Backspace:
+                                if (Console.CursorLeft > 3)
+                                {
+                                    int cLeft = Console.CursorLeft - 1;
+                                    input = input.Remove(cLeft - 3, 1);
+                                    ClearLine();
+                                    Console.Write(input);
+                                    Console.CursorLeft = cLeft;
+                                    history[0] = input;
+                                }
+                                break;
+
+                            case ConsoleKey.Tab:
+                                ClearLine();
+                                input = ShowOptions(input) ?? input;
+                                Console.Write(input);
+                                break;
+
+                            case ConsoleKey.UpArrow:
+                                try
+                                {
+                                    input = history[++historyIndex];
+                                    ClearLine();
+                                    Console.Write(input);
+                                }
+                                catch { --historyIndex; }
+                                break;
+
+                            case ConsoleKey.DownArrow:
+                                try
+                                {
+                                    input = history[--historyIndex];
+                                    ClearLine();
+                                    Console.Write(input);
+                                }
+                                catch
+                                {
+                                    historyIndex = -1;
+                                    ClearLine();
+                                }
+                                break;
+
+                            case ConsoleKey.LeftArrow:
+                                Console.CursorLeft -= (Console.CursorLeft > 3 ? 1 : 0);
+                                break;
+
+                            case ConsoleKey.RightArrow:
+                                Console.CursorLeft += (Console.CursorLeft < 3 + input.Length ? 1 : 0);
+                                break;
+
+                            case ConsoleKey.Enter:
+                                Console.Write(Environment.NewLine);
+                                done = true;
+                                break;
+
+                            default:
+                                input = input.Insert(Console.CursorLeft - 3, CKI.KeyChar.ToString());
+                                int cursorLeftBackup = Console.CursorLeft;
+                                Console.Write(input.Substring(Console.CursorLeft - 3));
+                                Console.CursorLeft = cursorLeftBackup + 1; //Restores cursor to user expected state
+                                history[0] = input;
+                                break;
+                        }
+                    }
+
                     if (input == "exit")
                         break;
                     else if (input.StartsWith("load"))
@@ -37,7 +114,7 @@ namespace NetChains
                         Console.WriteLine("(Shifts to System.ConsoleColor; Selects Red; Shifts to System.Console; Sets ForegroundColor to the parent ($, currently Red); Writes Hello to screen; Resets colors)");
                     }
 
-                    try { Console.WriteLine(Execute(input.Split(new string[] { "::" }, StringSplitOptions.RemoveEmptyEntries))); }
+                    try { Execute(input.Split(new string[] { "::" }, StringSplitOptions.RemoveEmptyEntries)); }
                     catch (Exception ex) { Console.WriteLine(ex.Message); }
                 }
             }
@@ -56,7 +133,7 @@ namespace NetChains
             {
                 string[] code = File.ReadAllLines(path);
 
-                foreach (string line in code) Console.WriteLine(Execute(line.Split(new string[] { "::" }, StringSplitOptions.RemoveEmptyEntries)));
+                foreach (string line in code) Execute(line.Split(new string[] { "::" }, StringSplitOptions.RemoveEmptyEntries));
             }
             catch (Exception Ex) { Console.WriteLine(Ex.Message); }
             finally
@@ -67,11 +144,11 @@ namespace NetChains
             }
         }
 
-        private static string Execute(string[] function)
+        private static void Execute(string[] function)
         {
             Type type;
             try { type = Type.GetType("System." + function[0].TrimStart('!')); }
-            catch { throw new Exception("Commands must start with a type."); }
+            catch { type = Type.GetType("System"); }
 
             int colons = function.Length;
             object obj = null;
@@ -115,7 +192,12 @@ namespace NetChains
                     }
                     else
                     {
-                        try { obj = type.GetProperty(curFunc).GetValue(obj); }
+                        try
+                        {
+                            obj = type.GetProperty(curFunc).GetValue(obj);
+                            if (colons == 2)
+                                Console.Write(obj);
+                        }
                         catch
                         {
                             List<object> args = null;
@@ -166,7 +248,6 @@ namespace NetChains
                 }
                 --colons;
             }
-            return obj?.ToString();
         }
 
         private static void ParseArgs(ref string input, ref List<object> args, ref Type[] argTypes, dynamic parent)
@@ -175,6 +256,9 @@ namespace NetChains
             {
                 args = new List<object>();
                 args.AddRange(input.Substring(input.IndexOf('(') + 1, input.IndexOf(')') - (input.IndexOf('(') + 1)).Replace(", ", ",").Split(','));
+                for (ushort cntr = 0; cntr < args.Count; ++cntr)
+                    args[cntr] = Unescape(args[cntr].ToString());
+
                 input = input.Substring(0, input.IndexOf('('));
                 argTypes = new Type[args.Count];
 
@@ -198,6 +282,88 @@ namespace NetChains
                         else argTypes[cntr] = typeof(string);
                     }
                 }
+            }
+        }
+
+        private static string Unescape (string input)
+        {
+            return Regex.Replace(input, @"\\[rnt]", m =>
+            {
+                switch (m.Value)
+                {
+                    case @"\r": return "\r";
+                    case @"\n": return "\n";
+                    case @"\t": return "\t";
+                    default: return m.Value;
+                }
+            });
+        }
+
+        private static string ShowOptions(string input)
+        {
+            input = input.TrimEnd(':', '.', '!', ' ', '\t');
+
+            Type type;
+            if (input.Contains('!'.ToString()))
+            {
+                string typeName = input.Substring(input.LastIndexOf('!') + 1);
+                string searchString = "";
+
+                if (typeName.Contains(":"))
+                {
+                    searchString = typeName.Substring(typeName.LastIndexOf(':') + 1);
+                    typeName = typeName.Remove(typeName.IndexOf(':'));
+                }
+                
+                try { type = Type.GetType("System." + typeName, true, true); }
+                catch { return null; }
+                List<MemberInfo> resultInfos = new List<MemberInfo>();
+                resultInfos.AddRange(type.GetMembers());
+                string result = "\b\b\b";
+
+                if (searchString != "")
+                    resultInfos.RemoveAll(s => !s.Name.StartsWith(searchString));
+
+                RemoveDuplicates(ref resultInfos);
+
+                if (resultInfos.Count == 0)
+                    return null;
+
+                if (resultInfos.Count == 1)
+                    return input.Remove(input.LastIndexOf(':')) + ':' + resultInfos[0].Name;
+
+                if (resultInfos.Count > 40)
+                    return null;
+                
+                foreach (MemberInfo resultInfo in resultInfos)
+                {
+                    result += resultInfo.Name + '\t';
+                }
+                Console.Write(result.TrimEnd('\t') + "\n>>>");
+            }
+            return null;
+        }
+
+        private static void ClearLine()
+        {
+            Console.CursorLeft = 100;
+            while (Console.CursorLeft > 3)
+                Console.Write("\b \b");
+        }
+
+        private static void RemoveDuplicates(ref List<MemberInfo> input)
+        {
+            List<string> names = new List<string>();
+
+            List<MemberInfo> inputDup = new List<MemberInfo>();
+            inputDup.AddRange(input);
+
+            foreach (MemberInfo info in inputDup)
+            {
+                if (names.Contains(info.Name))
+                    input.Remove(info);
+                else
+                    names.Add(info.Name);
             }
         }
     }
