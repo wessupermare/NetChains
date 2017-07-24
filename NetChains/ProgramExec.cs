@@ -9,14 +9,14 @@ namespace NetChains
     {
         private static List<string> codeBlock = new List<string>();
 
-        private static void PreExec(string input)
+        private static string PreExec(string input)
         {
             input = input.Trim('\t', ' ', '\0', '\r', '\n');
 
             if (input.ToLower() == "exit")
                 Environment.Exit(0);
             else if (input == "")
-                return;
+                return null;
             else if (input.ToLower().StartsWith("load"))
             {
                 string[] args = ArgSplit(input);
@@ -47,9 +47,19 @@ namespace NetChains
             }
             else if (input.ToLower().StartsWith("$"))
             {
-                try { variables.Add(ArgSplit(input)[0].TrimStart('$'), ArgSplit(input)[1]); }
-                catch (IndexOutOfRangeException) { variables.Add(ArgSplit(input)[0].TrimStart('$'), "TRUE"); }
-                catch (ArgumentException) { variables[ArgSplit(input)[0].TrimStart('$')] = ArgSplit(input)[1]; }
+                string[] args = ArgSplit(input);
+
+                if (args[1].StartsWith("!"))
+                {
+                    try { variables[args[0].TrimStart('$')] = PreExec(args[1]); }
+                    catch (KeyNotFoundException) { variables.Add(args[0].TrimStart('$'), PreExec(args[1])); }
+                }
+                else
+                {
+                    try { variables.Add(args[0].TrimStart('$'), args[1]); }
+                    catch (IndexOutOfRangeException) { variables.Add(args[0].TrimStart('$'), "TRUE"); }
+                    catch (ArgumentException) { variables[args[0].TrimStart('$')] = args[1]; }
+                }
             }
             else if (input.ToLower().StartsWith("#loop") || input.ToLower().StartsWith("#if"))
             {
@@ -76,9 +86,11 @@ namespace NetChains
             }
             else
             {
-                try { Execute(ArgSplit(input, "::")); }
+                try { return Execute(ArgSplit(input, "::")); }
                 catch (Exception ex) { Console.WriteLine(ex.Message); }
             }
+
+            return null;
         }
 
         private static void PreExecCommand(string preExec, string[] code)
@@ -159,14 +171,14 @@ namespace NetChains
             catch (Exception Ex) { Console.WriteLine(Ex.Message); }
         }
 
-        private static void Execute(string[] function)
+        private static string Execute(string[] function)
         {
             for (int cntr = 0; cntr < function.Length; ++cntr)
                 function[cntr] = function[cntr].TrimStart('\t', ' ', '\n', '\r', '\0').TrimEnd('\t', ' ', '\n', '\r', '\0');
 
             Type type;
             try { type = Type.GetType("System." + function[0].TrimStart('!')); }
-            catch { type = Type.GetType("System"); }
+            catch { throw new SanityException($"Type name {function[0].TrimStart('!')} not found!"); }
 
             int colons = function.Length;
             object obj = null;
@@ -266,6 +278,8 @@ namespace NetChains
                 }
                 --colons;
             }
+
+            return obj?.ToString();
         }
 
         private static void ParseArgs(ref string input, ref List<object> args, ref Type[] argTypes, dynamic parent)
@@ -297,7 +311,12 @@ namespace NetChains
                             argTypes[cntr] = typeof(int);
                             args[cntr] = catchval;
                         }
-                        else argTypes[cntr] = typeof(string);
+                        else
+                        {
+                            argTypes[cntr] = typeof(string);
+                            if (((string)args[cntr]).Contains("$"))
+                                args[cntr] = ((string)args[cntr]).Replace("$", parent.ToString());
+                        }
                     }
                 }
             }

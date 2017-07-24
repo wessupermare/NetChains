@@ -8,7 +8,7 @@ namespace NetChains
 {
     partial class Program
     {
-        const string VERSIONSTRING = "2.1.1";
+        const string VERSIONSTRING = "2.2.0";
 
         public static List<string> history = new List<string>();
         public static bool inBlock = false;
@@ -119,6 +119,7 @@ namespace NetChains
                         }
                     }
 
+                    history[0] = input;
                     PreExec(input);
                 }
             }
