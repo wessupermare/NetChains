@@ -8,7 +8,7 @@ namespace NetChains
 {
     partial class Program
     {
-        const string VERSIONSTRING = "2.2.0";
+        const string VERSIONSTRING = "2.2.1";
 
         public static List<string> history = new List<string>();
         public static bool inBlock = false;
@@ -50,6 +50,18 @@ namespace NetChains
                                 if (Console.CursorLeft > 3)
                                 {
                                     int cLeft = Console.CursorLeft - 1;
+                                    input = input.Remove(cLeft - 3, 1);
+                                    ClearLine();
+                                    Console.Write(input);
+                                    Console.CursorLeft = cLeft;
+                                    history[0] = input;
+                                }
+                                break;
+
+                            case ConsoleKey.Delete:
+                                if (Console.CursorLeft >= 3 && input.Length > 0)
+                                {
+                                    int cLeft = Console.CursorLeft;
                                     input = input.Remove(cLeft - 3, 1);
                                     ClearLine();
                                     Console.Write(input);
