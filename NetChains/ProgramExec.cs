@@ -39,6 +39,7 @@ namespace NetChains
                 Console.WriteLine("\nA chain consists of two types of phrase:\n\tA selection/shift phrase starts with a bang (!) and is the name of a class (inside System) to 'select' (e.g. !Console selects System.Console).\n\tAn access/command phrase uses a member/method inside the currently selected class (e.g. !Console::WriteLine(Hello!) is equivalent to C#/VB Console.WriteLine(\"Hello!\")).");
                 Console.WriteLine("\nEx. !ConsoleColor::Red::!Console::ForegroundColor = $::Write(Hello)::ResetColor");
                 Console.WriteLine("(Selects to System.ConsoleColor; Accesses member Red; Shifts to System.Console; Sets ForegroundColor to the parent ($, currently Red); Writes Hello to screen; Resets colors)");
+                Console.WriteLine("\nFor more complete documentation, go to https://github.com/wessupermare/NetChains/wiki");
             }
             else if (input.ToLower() == "clear")
             {
