@@ -13,16 +13,25 @@ namespace NetChains
         {
             input = input.Trim('\t', ' ', '\0', '\r', '\n');
 
-            if (input == "exit")
+            if (input.ToLower() == "exit")
                 Environment.Exit(0);
             else if (input == "")
                 return;
-            else if (input.StartsWith("load"))
+            else if (input.ToLower().StartsWith("load"))
             {
-                ExecFile(input.Substring((input.Length > 4) ? 5 : 4));
-                Main(null);
+                string[] args = ArgSplit(input);
+                try { LoadFile(args[1], args[2]); }
+                catch (IndexOutOfRangeException)
+                {
+                    try { LoadFile(args[1], ""); }
+                    catch (IndexOutOfRangeException) { throw new Exception("Load requires a filename"); }
+                }
             }
-            else if (input == "help")
+            else if (input.ToLower().StartsWith("run"))
+            {
+                ExecFile(ArgSplit(input)[1], false);
+            }
+            else if (input.ToLower() == "help")
             {
                 Console.WriteLine("NetChains is copyrighted by Weston Sleeman, but feel free to redistribute this executable in its original form.");
                 Console.WriteLine("NetChains provides direct access to the .NET framework in a scriptable and chain-y format.");
@@ -31,21 +40,25 @@ namespace NetChains
                 Console.WriteLine("\nEx. !ConsoleColor::Red::!Console::ForegroundColor = $::Write(Hello)::ResetColor");
                 Console.WriteLine("(Selects to System.ConsoleColor; Accesses member Red; Shifts to System.Console; Sets ForegroundColor to the parent ($, currently Red); Writes Hello to screen; Resets colors)");
             }
-            else if (input == "clear")
+            else if (input.ToLower() == "clear")
             {
                 Main(null);
             }
-            else if (input.StartsWith("$"))
+            else if (input.ToLower().StartsWith("$"))
             {
-                try { variables.Add(input.Split(' ')[0].TrimStart('$'), input.Split(' ')[1]); }
-                catch (IndexOutOfRangeException) { variables.Add(input.Split(' ')[0].TrimStart('$'), "TRUE"); }
-                catch (ArgumentException) { variables[input.Split(' ')[0].TrimStart('$')] = input.Split(' ')[1]; }
+                try { variables.Add(ArgSplit(input)[0].TrimStart('$'), ArgSplit(input)[1]); }
+                catch (IndexOutOfRangeException) { variables.Add(ArgSplit(input)[0].TrimStart('$'), "TRUE"); }
+                catch (ArgumentException) { variables[ArgSplit(input)[0].TrimStart('$')] = ArgSplit(input)[1]; }
             }
-            else if (input.StartsWith("#"))
+            else if (input.ToLower().StartsWith("#loop") || input.ToLower().StartsWith("#if"))
             {
                 codeBlock = new List<string>();
                 inBlock = true;
                 codeBlock.Add(input);
+            }
+            else if (input.StartsWith("#"))
+            {
+                PreExecCommand(input, null);
             }
             else if (inBlock && input.ToLower() == "end")
             {
@@ -70,12 +83,12 @@ namespace NetChains
         private static void PreExecCommand(string preExec, string[] code)
         {
             List<string> args = new List<string>();
-            args.AddRange(preExec.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries));
+            args.AddRange(ArgSplit(preExec));
 
             string method = args[0].ToLower();
             args.RemoveAt(0);
 
-            if (method == "#run")
+            if (method == "#loop")
             {
                 int runTo;
                 try
@@ -85,22 +98,38 @@ namespace NetChains
                     else
                         runTo = int.Parse(args[0]);
                 }
-                catch (FormatException) { Console.WriteLine("Run block requires a valid number of times to run"); return; }
+                catch (FormatException) { Console.WriteLine("Loop block requires a valid number of times to run"); return; }
                 
                 for (int cntr = 0; cntr < runTo; cntr++)
                 {
                     ExecMulti(code);
                 }
             }
-
-            if (method == "#if")
+            else if (method == "#load")
+            {
+                try { LoadFile(args[0], args[1]); }
+                catch (ArgumentOutOfRangeException)
+                {
+                    try { LoadFile(args[0], ""); }
+                    catch (ArgumentOutOfRangeException) { throw new Exception("Load requires a filename"); }
+                }
+            }
+            else if (method == "#run")
+            {
+                ExecFile(args[0], false);
+            }
+            else if (method == "#if")
             {
                 bool condition = false;
 
                 if (args.Count == 1)
                 {
                     try { condition = bool.Parse(variables[args[0]]); }
-                    catch (FormatException) { condition = bool.Parse(args[0]); }
+                    catch (KeyNotFoundException)
+                    {
+                        try { condition = bool.Parse(args[0]); }
+                        catch (FormatException) { condition = false; }
+                    }
                 }
                 else
                 {
