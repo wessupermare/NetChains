@@ -8,7 +8,7 @@ namespace NetChains
 {
     partial class Program
     {
-        const string VERSIONSTRING = "2.0.1";
+        const string VERSIONSTRING = "2.1.0";
 
         public static List<string> history = new List<string>();
         public static bool inBlock = false;
@@ -248,19 +248,35 @@ namespace NetChains
 
         static string[] ArgSplit(string input)
         {
+            return ArgSplit(input, " ");
+        }
+
+        //Parses arguments from a string, dealing with quotes and variables
+        static string[] ArgSplit(string input, string splitStr)
+        {
             List<string> retval = new List<string>();
 
             string arg = "";
             bool isInQuote = false;
             char quoteChar = '\0';
 
-            foreach (char c in input)
+            for (ushort outCntr = 0; outCntr < input.Length; ++outCntr)
             {
-                if (!isInQuote && char.IsWhiteSpace(c))
+                char c = input[outCntr];
+                bool isSplit = true;
+
+                for (ushort cntr = 0; cntr < splitStr.Length; ++cntr)
+                {
+                    if (isSplit && input[outCntr + cntr] != splitStr[cntr])
+                        isSplit = false;
+                }
+
+                if (!isInQuote && isSplit)
                 {
                     if (arg != "")
                         retval.Add(arg);
                     arg = "";
+                    outCntr += (ushort)(splitStr.Length - 1);
                     continue;
                 }
 
@@ -283,8 +299,14 @@ namespace NetChains
             }
 
             retval.Add(arg);
+            string[] outval = retval.ToArray();
 
-            return retval.ToArray();
+            foreach (KeyValuePair<string, string> var in variables)
+                foreach (string argSearch in retval)
+                    if (argSearch.ToLower().Contains(var.Key.ToLower()))
+                        outval[retval.FindIndex(ind => ind.Equals(argSearch))] = argSearch.Replace(var.Key, var.Value);
+
+            return outval;
         }
     }
 

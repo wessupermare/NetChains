@@ -75,7 +75,7 @@ namespace NetChains
             }
             else
             {
-                try { Execute(input.Split(new string[] { "::" }, StringSplitOptions.RemoveEmptyEntries)); }
+                try { Execute(ArgSplit(input, "::")); }
                 catch (Exception ex) { Console.WriteLine(ex.Message); }
             }
         }
@@ -152,7 +152,7 @@ namespace NetChains
                     if (line == "exit")
                         break;
 
-                    Execute(line.Split(new string[] { "::" }, StringSplitOptions.RemoveEmptyEntries));
+                    Execute(ArgSplit(line, "::"));
                 }
             }
             catch (Exception Ex) { Console.WriteLine(Ex.Message); }
@@ -272,7 +272,7 @@ namespace NetChains
             if (input.Contains("("))
             {
                 args = new List<object>();
-                args.AddRange(input.Substring(input.IndexOf('(') + 1, input.IndexOf(')') - (input.IndexOf('(') + 1)).Replace(", ", ",").Split(','));
+                args.AddRange(ArgSplit(input.Substring(input.IndexOf('(') + 1, input.IndexOf(')') - (input.IndexOf('(') + 1)), ","));
                 for (ushort cntr = 0; cntr < args.Count; ++cntr)
                     args[cntr] = Unescape(args[cntr].ToString());
 
