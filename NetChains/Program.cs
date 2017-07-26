@@ -2,13 +2,12 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
-using System.Text;
 
 namespace NetChains
 {
     partial class Program
     {
-        const string VERSIONSTRING = "2.2.1";
+        const string VERSIONSTRING = "2.3.0";
 
         public static List<string> history = new List<string>();
         public static bool inBlock = false;
@@ -137,9 +136,27 @@ namespace NetChains
             }
             else
             {
-                foreach (string arg in args)
+                List<string> argList = new List<string>();
+                argList.AddRange(args);
+
+                while (argList.Contains("-p"))
                 {
-                    ExecFile(arg, true);
+                    ExecFile(argList[argList.IndexOf("-p") + 1]);
+                    argList.RemoveAt(argList.IndexOf("-p") + 1);
+                    argList.RemoveAt(argList.IndexOf("-p"));
+                    if (!argList.Contains("-e"))
+                        Main(null);
+                }
+                while (argList.Contains("-e"))
+                {
+                    PreExec(argList[argList.IndexOf("-e") + 1]);
+                    argList.RemoveAt(argList.IndexOf("-e") + 1);
+                    argList.RemoveAt(argList.IndexOf("-e"));
+                }
+                
+                foreach (string arg in argList)
+                {
+                    ExecFile(arg);
                 }
             }
         }
@@ -157,38 +174,24 @@ namespace NetChains
 
                 if (!scriptCache.ContainsKey(name.ToLower()))
                     scriptCache.Add(name.ToLower(), path);
-
-                Console.WriteLine($"Script {name} loaded successfully!");
+                
                 return name;
             }
             catch { throw new ArgumentException($"Loading script at {path} failed."); }
         }
 
-        private static void ExecFile(string name, bool exitOnComplete)
+        private static void ExecFile(string name)
         {
-            if (exitOnComplete)
-                name = LoadFile(name, "");
             try
             {
                 string[] code;
                 try { code = File.ReadAllLines(scriptCache[name.ToLower()]); }
                 catch (KeyNotFoundException) { code = File.ReadAllLines(name); }
 
-                Console.WriteLine($"Running script {name}:");
-
                 foreach (string line in code) PreExec(line);
             }
             catch (KeyNotFoundException) { Console.WriteLine($"Can't find script {name}"); }
             catch (Exception Ex) { Console.WriteLine(Ex.Message); }
-            finally
-            {
-                if (exitOnComplete)
-                {
-                    Console.WriteLine("Press any key to continue...");
-                    Console.ReadKey(true);
-                    Console.Clear();
-                }
-            }
         }
 
         private static void ClearLine()

@@ -29,7 +29,15 @@ namespace NetChains
             }
             else if (input.ToLower().StartsWith("run"))
             {
-                ExecFile(ArgSplit(input)[1], false);
+                ExecFile(ArgSplit(input)[1]);
+            }
+            else if (input.ToLower().StartsWith("exec"))
+            {
+                string[] cmdString = ArgSplit(input);
+                if (cmdString.Length > 2)
+                    System.Diagnostics.Process.Start(cmdString[1], cmdString[2]);
+                else
+                    System.Diagnostics.Process.Start(cmdString[1]);
             }
             else if (input.ToLower() == "help")
             {
@@ -129,7 +137,7 @@ namespace NetChains
             }
             else if (method == "#run")
             {
-                ExecFile(args[0], false);
+                ExecFile(args[0]);
             }
             else if (method == "#if")
             {
@@ -154,6 +162,10 @@ namespace NetChains
                     ExecMulti(code);
                 }
             }
+            else if (method == "#exec")
+            {
+                System.Diagnostics.Process.Start(args[0]);
+            }
         }
 
         private static void ExecMulti(string[] code)
@@ -177,7 +189,7 @@ namespace NetChains
                 function[cntr] = function[cntr].TrimStart('\t', ' ', '\n', '\r', '\0').TrimEnd('\t', ' ', '\n', '\r', '\0');
 
             Type type;
-            try { type = Type.GetType("System." + function[0].TrimStart('!')); }
+            try { type = Type.GetType("System." + function[0].TrimStart('!'), true); }
             catch { throw new SanityException($"Type name {function[0].TrimStart('!')} not found!"); }
 
             int colons = function.Length;
