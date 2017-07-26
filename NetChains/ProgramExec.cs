@@ -20,11 +20,27 @@ namespace NetChains
             else if (input.ToLower().StartsWith("load"))
             {
                 string[] args = ArgSplit(input);
-                try { LoadFile(args[1], args[2]); }
-                catch (IndexOutOfRangeException)
+                try
                 {
-                    try { LoadFile(args[1], ""); }
-                    catch (IndexOutOfRangeException) { throw new Exception("Load requires a filename"); }
+                    try { LoadFile(args[1], args[2]); }
+                    catch (IndexOutOfRangeException)
+                    {
+                        try { LoadFile(args[1], ""); }
+                        catch (IndexOutOfRangeException) { throw new Exception("Load requires a filename"); }
+                    }
+                }
+                catch (ArgumentException)
+                {
+                    try
+                    {
+                        try { LoadFile(args[1] + ".net", args[2]); }
+                        catch (IndexOutOfRangeException)
+                        {
+                            try { LoadFile(args[1] + ".net", ""); }
+                            catch (IndexOutOfRangeException) { throw new Exception("Load requires a filename"); }
+                        }
+                    }
+                    catch (ArgumentException) { Console.WriteLine($"Cannot find file {args[1]}"); }
                 }
             }
             else if (input.ToLower().StartsWith("run"))
