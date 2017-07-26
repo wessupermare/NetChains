@@ -7,7 +7,7 @@ namespace NetChains
 {
     partial class Program
     {
-        const string VERSIONSTRING = "2.3.2";
+        const string VERSIONSTRING = "2.3.3";
 
         public static List<string> history = new List<string>();
         public static bool inBlock = false;
@@ -196,7 +196,7 @@ namespace NetChains
 
         private static void ClearLine()
         {
-            Console.CursorLeft = 100;
+            Console.CursorLeft = Console.BufferWidth - 1;
             while (Console.CursorLeft > 3)
                 Console.Write("\b \b");
         }
