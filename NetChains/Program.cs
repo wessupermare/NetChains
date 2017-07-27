@@ -1,14 +1,13 @@
 ﻿using NetChainsBackend;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Reflection;
 
 namespace NetChains
 {
     partial class Program
     {
-        const string VERSIONSTRING = "2.3.3";
+        const string VERSIONSTRING = "2.4.0";
 
         public static List<string> history = new List<string>();
 
