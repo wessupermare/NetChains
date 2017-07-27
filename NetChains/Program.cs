@@ -134,7 +134,11 @@ namespace NetChains
                     }
 
                     history[0] = input;
-                    Console.WriteLine(NCBackend.PreExec(input));
+
+                    if (input == "clear") Console.Clear();
+                    else
+                        try { Console.WriteLine(NCBackend.PreExec(input)); }
+                        catch (Exception ex) { Console.WriteLine(ex.Message); }
                 }
             }
             else
