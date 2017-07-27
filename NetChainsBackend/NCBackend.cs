@@ -12,6 +12,11 @@ namespace NetChainsBackend
         static private Dictionary<string, string> variables = new Dictionary<string, string>();
         static private Dictionary<string, string> scriptCache = new Dictionary<string, string>();
 
+        /// <summary>
+        /// Executes a provided NetChain
+        /// </summary>
+        /// <param name="input">The command to execute</param>
+        /// <returns>Any indirectly generated output or errors</returns>
         public static string PreExec(string input)
         {
             string retVal = "";
@@ -85,7 +90,7 @@ namespace NetChainsBackend
                     catch (ArgumentException) { variables[args[0].TrimStart('$')] = args[1]; }
                 }
             }
-            else if (input.ToLower().StartsWith("#loop") || input.ToLower().StartsWith("#if"))
+            else if (input.ToLower().StartsWith("#loop") || input.ToLower().StartsWith("#if") || input.ToLower().StartsWith("#use"))
             {
                 codeBlock = new List<string>();
                 inBlock = true;
@@ -117,6 +122,12 @@ namespace NetChainsBackend
             return retVal.Trim('\n', '\r');
         }
 
+        /// <summary>
+        /// Handles NetChains pre-execution directives
+        /// </summary>
+        /// <param name="preExec">A directive to enact</param>
+        /// <param name="code">The block of code from if/loop/etc statements</param>
+        /// <returns>Any iderectly generated results or errors</returns>
         private static string PreExecCommand(string preExec, string[] code)
         {
             List<string> args = new List<string>();
@@ -178,6 +189,20 @@ namespace NetChainsBackend
                     ExecMulti(code);
                 }
             }
+            else if (method == "#use")
+            {
+                List<object> argList = new List<object>();
+                string argCache = args[0];
+                Type[] typeList = new Type[0];
+
+                ParseArgs(ref argCache, ref argList, ref typeList, null);
+                Assembly assembly = Assembly.Load(GetAssemblyNameContainingType("System." + argCache.TrimStart('!', '\'', '"','`')));
+                Type type = assembly.GetType("System." + argCache.TrimStart('!', '\'', '"', '`'), true);
+                using (dynamic used = Activator.CreateInstance(type))
+                {
+                    return ExecMulti(code, used);
+                }
+            }
             else if (method == "#exec")
             {
                 System.Diagnostics.Process.Start(args[0]);
@@ -186,7 +211,28 @@ namespace NetChainsBackend
             return null;
         }
 
+        public static string GetAssemblyNameContainingType(string typeName)
+        {
+            foreach (Assembly currentassembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                Type t = currentassembly.GetType(typeName, false, true);
+                if (t != null) { return currentassembly.FullName; }
+            }
+
+            throw new ArgumentException("Type not found in any loaded assemblies");
+        }
+
+        /// <summary>
+        /// Executes multiple NetChains
+        /// </summary>
+        /// <param name="code"></param>
+        /// <returns></returns>
         private static string ExecMulti(string[] code)
+        {
+            return ExecMulti(code, null);
+        }
+
+        private static string ExecMulti(string[] code, object parent)
         {
             List<string> retList = new List<string>();
             try
@@ -196,7 +242,7 @@ namespace NetChainsBackend
                     if (line == "exit")
                         break;
 
-                    retList.Add(Execute(ArgSplit(line, "::")));
+                    retList.Add(Execute(ArgSplit(line, "::"), parent));
                 }
             }
             catch (Exception Ex) { return (Ex.Message); }
@@ -210,21 +256,41 @@ namespace NetChainsBackend
 
         private static string Execute(string[] function)
         {
-            for (int cntr = 0; cntr < function.Length; ++cntr)
-                function[cntr] = function[cntr].TrimStart('\t', ' ', '\n', '\r', '\0').TrimEnd('\t', ' ', '\n', '\r', '\0');
+            return Execute(function, null);
+        }
+
+        private static string Execute(string[] functionIn, object obj)
+        {
+            for (int cntr = 0; cntr < functionIn.Length; ++cntr)
+                functionIn[cntr] = functionIn[cntr].TrimStart('\t', ' ', '\n', '\r', '\0').TrimEnd('\t', ' ', '\n', '\r', '\0');
+
+            List<string> function = new List<string>();
+            function.AddRange(functionIn);
 
             Type type;
-            try { type = Type.GetType("System." + function[0].TrimStart('!'), true); }
-            catch { throw new SanityException($"Type name {function[0].TrimStart('!')} not found!"); }
-
-            int colons = function.Length;
-            object obj = null;
-            while (colons > 1)
+            if (obj == null)
             {
-                string curFunc = function[function.Length - (colons - 1)];
+                try
+                {
+                    Assembly assembly = Assembly.Load(GetAssemblyNameContainingType("System." + function[0].TrimStart('!', '\'', '"', '`')));
+                    type = assembly.GetType("System." + function[0].TrimStart('!', '\'', '"', '`'), true);
+                    function.RemoveAt(0);
+                }
+                catch { throw new SanityException($"Type name {function[0].TrimStart('!')} not found!"); }
+            }
+            else
+            {
+                type = obj.GetType();
+            }
+
+            int colons = function.Count;
+            while (colons > 0)
+            {
+                string curFunc = function[function.Count - (colons)];
                 if (curFunc.StartsWith("!"))
                 {
-                    type = Type.GetType("System." + curFunc.TrimStart('!'));
+                    Assembly assembly = Assembly.Load(GetAssemblyNameContainingType("System." + curFunc.TrimStart('!', '\'', '"', '`')));
+                    type = assembly.GetType("System." + curFunc.TrimStart('!', '\'', '"', '`'), true);
                 }
                 else
                 {
@@ -255,14 +321,14 @@ namespace NetChainsBackend
                         }
 
                         try { type.GetProperty(curFunc).SetValue(null, castedVal); }
-                        catch (Exception ex) { throw new Exception($"Error in phrase {(function.Length - colons) + 1}: {ex.Message}"); }
+                        catch (Exception ex) { throw new Exception($"Error in phrase {(function.Count - colons) + 1}: {ex.Message}"); }
                     }
                     else
                     {
                         try
                         {
                             obj = type.GetProperty(curFunc).GetValue(obj);
-                            if (colons == 2)
+                            if (colons == 1)
                                 return (obj.ToString());
                         }
                         catch
@@ -308,7 +374,7 @@ namespace NetChainsBackend
                             catch (Exception ex)
                             {
                                 try { obj = type.GetMember(curFunc)[0]; }
-                                catch { throw new Exception($"Error in phrase {(function.Length - colons) + 1}: {ex.Message}"); }
+                                catch { throw new Exception($"Error in phrase {(function.Count - colons) + 1}: {ex.Message}"); }
                             }
                         }
                     }
@@ -359,6 +425,11 @@ namespace NetChainsBackend
             }
         }
 
+        /// <summary>
+        /// Unescapes any \\'s
+        /// </summary>
+        /// <param name="input">An escaped string</param>
+        /// <returns>The unescaped equivalent of input</returns>
         private static string Unescape(string input)
         {
             return System.Text.RegularExpressions.Regex.Replace(input, @"\\[*]", m =>
@@ -374,12 +445,24 @@ namespace NetChainsBackend
             });
         }
 
+        /// <summary>
+        /// Parses arguments from a string, dealing with quotes and variables
+        /// </summary>
+        /// <param name="input">The string of arguments</param>
+        /// <param name="splitStr">The delimiter</param>
+        /// <returns>The split array of string arguments</returns>
         public static string[] ArgSplit(string input, string splitStr)
         {
             return ArgSplit(input, splitStr, false);
         }
 
-        //Parses arguments from a string, dealing with quotes and variables
+        /// <summary>
+        /// Parses arguments from a string, dealing with quotes and variables
+        /// </summary>
+        /// <param name="input">The string of arguments</param>
+        /// <param name="splitStr">The delimiter</param>
+        /// <param name="leaveQuotes">Should quotes be demoted?</param>
+        /// <returns>The split array of string arguments</returns>
         public static string[] ArgSplit(string input, string splitStr, bool leaveQuotes)
         {
             List<string> retval = new List<string>();
@@ -474,11 +557,17 @@ namespace NetChainsBackend
             foreach (KeyValuePair<string, string> var in variables)
                 foreach (string argSearch in retval)
                     if (argSearch.ToLower().Contains(var.Key.ToLower()))
-                        outval[retval.FindIndex(ind => ind.Equals(argSearch))] = argSearch.Replace(var.Key, var.Value);
+                        outval[retval.FindIndex(ind => ind.Equals(argSearch))] = argSearch.Replace(var.Key, var.Value).Trim();
 
             return outval;
         }
 
+        /// <summary>
+        /// Loads a script to prepare it for use
+        /// </summary>
+        /// <param name="path">The relative path of the file to use</param>
+        /// <param name="name">The name with which to assign it if no #NAME directive is provided</param>
+        /// <returns>The actual script name</returns>
         public static string LoadFile(string path, string name)
         {
             try
@@ -498,6 +587,11 @@ namespace NetChainsBackend
             catch { throw new ArgumentException($"Loading script at {path} failed."); }
         }
 
+        /// <summary>
+        /// Executes an already loaded script
+        /// </summary>
+        /// <param name="name">The name of the script to execute</param>
+        /// <returns>Any indirectly generated output or errors</returns>
         public static string ExecFile(string name)
         {
             List<string> outputList = new List<string>();
