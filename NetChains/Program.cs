@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NetChainsBackend;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
@@ -10,9 +11,6 @@ namespace NetChains
         const string VERSIONSTRING = "2.3.3";
 
         public static List<string> history = new List<string>();
-        public static bool inBlock = false;
-        static private Dictionary<string, string> variables = new Dictionary<string, string>();
-        static private Dictionary<string, string> scriptCache = new Dictionary<string, string>();
 
         static void Main(string[] args)
         {
@@ -40,7 +38,7 @@ namespace NetChains
                     bool done = false;
                     history.Insert(0, "");
 
-                    if (inBlock)
+                    if (NCBackend.inBlock)
                     {
                         Console.Write('\t');
                         input = "     ";
@@ -137,7 +135,7 @@ namespace NetChains
                     }
 
                     history[0] = input;
-                    PreExec(input);
+                    Console.WriteLine(NCBackend.PreExec(input));
                 }
             }
             else
@@ -147,7 +145,7 @@ namespace NetChains
 
                 while (argList.Contains("-p"))
                 {
-                    ExecFile(argList[argList.IndexOf("-p") + 1]);
+                    Console.WriteLine(NCBackend.ExecFile(argList[argList.IndexOf("-p") + 1]));
                     argList.RemoveAt(argList.IndexOf("-p") + 1);
                     argList.RemoveAt(argList.IndexOf("-p"));
                     if (!argList.Contains("-e"))
@@ -155,49 +153,16 @@ namespace NetChains
                 }
                 while (argList.Contains("-e"))
                 {
-                    PreExec(argList[argList.IndexOf("-e") + 1]);
+                    Console.WriteLine(NCBackend.PreExec(argList[argList.IndexOf("-e") + 1]));
                     argList.RemoveAt(argList.IndexOf("-e") + 1);
                     argList.RemoveAt(argList.IndexOf("-e"));
                 }
                 
                 foreach (string arg in argList)
                 {
-                    ExecFile(arg);
+                    Console.WriteLine(NCBackend.ExecFile(arg));
                 }
             }
-        }
-
-        private static string LoadFile(string path, string name)
-        {
-            try
-            {
-                string[] code = File.ReadAllLines(path);
-
-                if (code[0].ToLower().StartsWith("#name") && name == "")
-                    name = ArgSplit(code[0], " ", true)[1];
-                else if (name == "")
-                    name = path.Substring(path.LastIndexOf('\\') + 1);
-
-                if (!scriptCache.ContainsKey(name.ToLower()))
-                    scriptCache.Add(name.ToLower(), path);
-                
-                return name;
-            }
-            catch { throw new ArgumentException($"Loading script at {path} failed."); }
-        }
-
-        private static void ExecFile(string name)
-        {
-            try
-            {
-                string[] code;
-                try { code = File.ReadAllLines(scriptCache[name.ToLower()]); }
-                catch (KeyNotFoundException) { code = File.ReadAllLines(name); }
-
-                foreach (string line in code) PreExec(line);
-            }
-            catch (KeyNotFoundException) { Console.WriteLine($"Can't find script {name}"); }
-            catch (Exception Ex) { Console.WriteLine(Ex.Message); }
         }
 
         private static void ClearLine()
@@ -267,119 +232,5 @@ namespace NetChains
             }
             return null;
         }
-
-        static string[] ArgSplit(string input, string splitStr)
-        {
-            return ArgSplit(input, splitStr, false);
-        }
-
-        //Parses arguments from a string, dealing with quotes and variables
-        static string[] ArgSplit(string input, string splitStr, bool leaveQuotes)
-        {
-            List<string> retval = new List<string>();
-
-            string arg = "";
-            bool isInQuote = false;
-            char quoteChar = '\0';
-
-            for (ushort outCntr = 0; outCntr < input.Length; ++outCntr)
-            {
-                char c = input[outCntr];
-                bool isSplit = true;
-
-                for (ushort cntr = 0; cntr < splitStr.Length; ++cntr)
-                {
-                    if (isSplit && input[outCntr + cntr] != splitStr[cntr])
-                        isSplit = false;
-                }
-
-                if (!isInQuote && isSplit)
-                {
-                    if (arg != "")
-                        retval.Add(arg);
-                    arg = "";
-                    outCntr += (ushort)(splitStr.Length - 1);
-                    continue;
-                }
-
-                if (c == '\'')
-                {
-                    if (isInQuote && c == quoteChar)
-                    {
-                        isInQuote = false;
-                        if (leaveQuotes) arg += '\'';
-                    }
-                    else if (isInQuote)
-                        arg += c;
-                    else if (!isInQuote)
-                    {
-                        isInQuote = true;
-                        quoteChar = c;
-                        if (leaveQuotes) arg += '\'';
-                    }
-                    else throw new SanityException($"{c} is {(isInQuote ? " " : "not ")}in quotes");
-                    continue;
-                }
-
-                if (c == '"')
-                {
-                    if (isInQuote && c == quoteChar)
-                    {
-                        isInQuote = false;
-                        arg += leaveQuotes ? '"' : '\'';
-                    }
-                    else if (isInQuote)
-                        arg += c;
-                    else if (!isInQuote)
-                    {
-                        isInQuote = true;
-                        quoteChar = c;
-                        arg += leaveQuotes ? '"' : '\'';
-                    }
-                    else throw new SanityException($"{c} is {(isInQuote ? " " : "not ")}in quotes");
-                    continue;
-                }
-
-                if (c == '`')
-                {
-                    if (isInQuote && c == quoteChar)
-                    {
-                        isInQuote = false;
-                        arg += '`';
-                    }
-                    else if (isInQuote)
-                        arg += c;
-                    else if (!isInQuote)
-                    {
-                        isInQuote = true;
-                        quoteChar = c;
-                        arg += '`';
-                    }
-                    else throw new SanityException($"{c} is {(isInQuote ? " " : "not ")}in quotes");
-                    continue;
-                }
-
-                arg += c;
-            }
-
-            retval.Add(arg);
-            string[] outval = retval.ToArray();
-
-            foreach (KeyValuePair<string, string> var in variables)
-                foreach (string argSearch in retval)
-                    if (argSearch.ToLower().Contains(var.Key.ToLower()))
-                        outval[retval.FindIndex(ind => ind.Equals(argSearch))] = argSearch.Replace(var.Key, var.Value);
-
-            return outval;
-        }
-    }
-
-    public class SanityException : Exception
-    {
-        public SanityException() { }
-
-        public SanityException(string message) : base(message) { }
-
-        public SanityException(string message, Exception inner) : base(message, inner) { }
     }
 }

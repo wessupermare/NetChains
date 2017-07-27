@@ -1,16 +1,23 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Reflection;
-using System.Text.RegularExpressions;
+using System.Text;
+using System.Threading.Tasks;
 
-namespace NetChains
+namespace NetChainsBackend
 {
-    partial class Program
+    public static class NCBackend
     {
+        public static bool inBlock = false;
         private static List<string> codeBlock = new List<string>();
+        static private Dictionary<string, string> variables = new Dictionary<string, string>();
+        static private Dictionary<string, string> scriptCache = new Dictionary<string, string>();
 
-        private static string PreExec(string input)
+        public static string PreExec(string input)
         {
+            string retVal = "";
             input = input.Trim('\t', ' ', '\0', '\r', '\n');
 
             if (input.ToLower() == "exit")
@@ -40,7 +47,7 @@ namespace NetChains
                             catch (IndexOutOfRangeException) { throw new Exception("Load requires a filename"); }
                         }
                     }
-                    catch (ArgumentException) { Console.WriteLine($"Cannot find file {args[1]}"); }
+                    catch (ArgumentException) { retVal += ($"Cannot find file {args[1]}\n"); }
                 }
             }
             else if (input.ToLower().StartsWith("run"))
@@ -57,17 +64,13 @@ namespace NetChains
             }
             else if (input.ToLower() == "help")
             {
-                Console.WriteLine("NetChains is copyrighted by Weston Sleeman, but feel free to redistribute this executable in its original form.");
-                Console.WriteLine("NetChains provides direct access to the .NET framework in a scriptable and chain-y format.");
-                Console.WriteLine("Phrases are formed into chains, linked by a double colon (::).");
-                Console.WriteLine("\nA chain consists of two types of phrase:\n\tA selection/shift phrase starts with a bang (!) and is the name of a class (inside System) to 'select' (e.g. !Console selects System.Console).\n\tAn access/command phrase uses a member/method inside the currently selected class (e.g. !Console::WriteLine(Hello!) is equivalent to C#/VB Console.WriteLine(\"Hello!\")).");
-                Console.WriteLine("\nEx. !ConsoleColor::Red::!Console::ForegroundColor = $::Write(Hello)::ResetColor");
-                Console.WriteLine("(Selects to System.ConsoleColor; Accesses member Red; Shifts to System.Console; Sets ForegroundColor to the parent ($, currently Red); Writes Hello to screen; Resets colors)");
-                Console.WriteLine("\nFor more complete documentation, go to https://github.com/wessupermare/NetChains/wiki");
-            }
-            else if (input.ToLower() == "clear")
-            {
-                Main(null);
+                retVal += ("NetChains is copyrighted by Weston Sleeman, but feel free to redistribute this executable in its original form.\n");
+                retVal += ("NetChains provides direct access to the .NET framework in a scriptable and chain-y format.\n");
+                retVal += ("Phrases are formed into chains, linked by a double colon (::).\n");
+                retVal += ("\nA chain consists of two types of phrase:\n\tA selection/shift phrase starts with a bang (!) and is the name of a class (inside System) to 'select' (e.g. !Console selects System.Console).\n\tAn access/command phrase uses a member/method inside the currently selected class (e.g. !Console::WriteLine(Hello!) is equivalent to C#/VB retVal += (\"Hello!\")).\n");
+                retVal += ("\nEx. !ConsoleColor::Red::!Console::ForegroundColor = $::Write(Hello)::ResetColor\n");
+                retVal += ("(Selects to System.ConsoleColor; Accesses member Red; Shifts to System.Console; Sets ForegroundColor to the parent ($, currently Red); Writes Hello to screen; Resets colors)\n");
+                retVal += ("\nFor more complete documentation, go to https://github.com/wessupermare/NetChains/wiki\n");
             }
             else if (input.ToLower().StartsWith("$"))
             {
@@ -100,7 +103,7 @@ namespace NetChains
                 string preCom = codeBlock[0];
                 codeBlock.RemoveAt(0);
                 try { PreExecCommand(preCom, codeBlock.ToArray()); }
-                catch (Exception ex) { Console.WriteLine(ex.Message); }
+                catch (Exception ex) { retVal += (ex.Message + "\n"); }
                 codeBlock = new List<string>();
                 inBlock = false;
             }
@@ -111,13 +114,13 @@ namespace NetChains
             else
             {
                 try { return Execute(ArgSplit(input, "::", true)); }
-                catch (Exception ex) { Console.WriteLine(ex.Message); }
+                catch (Exception ex) { retVal += (ex.Message + "\n"); }
             }
 
-            return null;
+            return retVal.Trim('\n', '\r');
         }
 
-        private static void PreExecCommand(string preExec, string[] code)
+        private static string PreExecCommand(string preExec, string[] code)
         {
             List<string> args = new List<string>();
             args.AddRange(ArgSplit(preExec, " ", true));
@@ -135,8 +138,8 @@ namespace NetChains
                     else
                         runTo = int.Parse(args[0]);
                 }
-                catch (FormatException) { Console.WriteLine("Loop block requires a valid number of times to run"); return; }
-                
+                catch (FormatException) { return ("Loop block requires a valid number of times to run"); }
+
                 for (int cntr = 0; cntr < runTo; cntr++)
                 {
                     ExecMulti(code);
@@ -182,10 +185,13 @@ namespace NetChains
             {
                 System.Diagnostics.Process.Start(args[0]);
             }
+
+            return null;
         }
 
-        private static void ExecMulti(string[] code)
+        private static string ExecMulti(string[] code)
         {
+            List<string> retList = new List<string>();
             try
             {
                 foreach (string line in code)
@@ -193,10 +199,16 @@ namespace NetChains
                     if (line == "exit")
                         break;
 
-                    Execute(ArgSplit(line, "::"));
+                    retList.Add(Execute(ArgSplit(line, "::")));
                 }
             }
-            catch (Exception Ex) { Console.WriteLine(Ex.Message); }
+            catch (Exception Ex) { return (Ex.Message); }
+
+            string retVal = "";
+            foreach (string retitem in retList)
+                retVal += retitem + '\n';
+
+            return retVal.Trim('\n');
         }
 
         private static string Execute(string[] function)
@@ -254,7 +266,7 @@ namespace NetChains
                         {
                             obj = type.GetProperty(curFunc).GetValue(obj);
                             if (colons == 2)
-                                Console.WriteLine(obj);
+                                return (obj.ToString());
                         }
                         catch
                         {
@@ -352,7 +364,7 @@ namespace NetChains
 
         private static string Unescape(string input)
         {
-            return Regex.Replace(input, @"\\[*]", m =>
+            return System.Text.RegularExpressions.Regex.Replace(input, @"\\[*]", m =>
             {
                 switch (m.Value)
                 {
@@ -364,5 +376,163 @@ namespace NetChains
                 }
             });
         }
+
+        public static string[] ArgSplit(string input, string splitStr)
+        {
+            return ArgSplit(input, splitStr, false);
+        }
+
+        //Parses arguments from a string, dealing with quotes and variables
+        public static string[] ArgSplit(string input, string splitStr, bool leaveQuotes)
+        {
+            List<string> retval = new List<string>();
+
+            string arg = "";
+            bool isInQuote = false;
+            char quoteChar = '\0';
+
+            for (ushort outCntr = 0; outCntr < input.Length; ++outCntr)
+            {
+                char c = input[outCntr];
+                bool isSplit = true;
+
+                for (ushort cntr = 0; cntr < splitStr.Length; ++cntr)
+                {
+                    if (isSplit && input[outCntr + cntr] != splitStr[cntr])
+                        isSplit = false;
+                }
+
+                if (!isInQuote && isSplit)
+                {
+                    if (arg != "")
+                        retval.Add(arg);
+                    arg = "";
+                    outCntr += (ushort)(splitStr.Length - 1);
+                    continue;
+                }
+
+                if (c == '\'')
+                {
+                    if (isInQuote && c == quoteChar)
+                    {
+                        isInQuote = false;
+                        if (leaveQuotes) arg += '\'';
+                    }
+                    else if (isInQuote)
+                        arg += c;
+                    else if (!isInQuote)
+                    {
+                        isInQuote = true;
+                        quoteChar = c;
+                        if (leaveQuotes) arg += '\'';
+                    }
+                    else throw new SanityException($"{c} is {(isInQuote ? " " : "not ")}in quotes");
+                    continue;
+                }
+
+                if (c == '"')
+                {
+                    if (isInQuote && c == quoteChar)
+                    {
+                        isInQuote = false;
+                        arg += leaveQuotes ? '"' : '\'';
+                    }
+                    else if (isInQuote)
+                        arg += c;
+                    else if (!isInQuote)
+                    {
+                        isInQuote = true;
+                        quoteChar = c;
+                        arg += leaveQuotes ? '"' : '\'';
+                    }
+                    else throw new SanityException($"{c} is {(isInQuote ? " " : "not ")}in quotes");
+                    continue;
+                }
+
+                if (c == '`')
+                {
+                    if (isInQuote && c == quoteChar)
+                    {
+                        isInQuote = false;
+                        arg += '`';
+                    }
+                    else if (isInQuote)
+                        arg += c;
+                    else if (!isInQuote)
+                    {
+                        isInQuote = true;
+                        quoteChar = c;
+                        arg += '`';
+                    }
+                    else throw new SanityException($"{c} is {(isInQuote ? " " : "not ")}in quotes");
+                    continue;
+                }
+
+                arg += c;
+            }
+
+            retval.Add(arg);
+            string[] outval = retval.ToArray();
+
+            foreach (KeyValuePair<string, string> var in variables)
+                foreach (string argSearch in retval)
+                    if (argSearch.ToLower().Contains(var.Key.ToLower()))
+                        outval[retval.FindIndex(ind => ind.Equals(argSearch))] = argSearch.Replace(var.Key, var.Value);
+
+            return outval;
+        }
+
+        public static string LoadFile(string path, string name)
+        {
+            try
+            {
+                string[] code = File.ReadAllLines(path);
+
+                if (code[0].ToLower().StartsWith("#name") && name == "")
+                    name = ArgSplit(code[0], " ", true)[1];
+                else if (name == "")
+                    name = path.Substring(path.LastIndexOf('\\') + 1);
+
+                if (!scriptCache.ContainsKey(name.ToLower()))
+                    scriptCache.Add(name.ToLower(), path);
+
+                return name;
+            }
+            catch { throw new ArgumentException($"Loading script at {path} failed."); }
+        }
+
+        public static string ExecFile(string name)
+        {
+            List<string> outputList = new List<string>();
+            try
+            {
+                string[] code;
+                try { code = File.ReadAllLines(scriptCache[name.ToLower()]); }
+                catch (KeyNotFoundException) { code = File.ReadAllLines(name); }
+
+                foreach (string line in code)
+                {
+                    string output = PreExec(line);
+                    if (output != null && output != "") outputList.Add(output);
+                }
+            }
+            catch (KeyNotFoundException) { return ($"Can't find script {name}"); }
+            catch (Exception Ex) { return (Ex.Message); }
+
+            string retVal = "";
+            foreach (string op in outputList)
+                retVal += op + "\n";
+
+            return retVal.Trim('\n', '\r', '\0');
+        }
+    }
+
+    public class SanityException : Exception
+    {
+        public SanityException() { }
+
+        public SanityException(string message) : base(message) { }
+
+        public SanityException(string message, Exception inner) : base(message, inner) { }
     }
 }
