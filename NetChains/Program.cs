@@ -20,7 +20,13 @@ namespace NetChains
             Console.ResetColor();
 
             Console.WriteLine($"Welcome to the NetChains interpreter!\n(c) 2017 Weston Sleeman, version {VERSIONSTRING}\nType \"help\" for a brief tutorial or \"exit\" to return to the shell.\n");
-            if (args == null) args = new string[0]{ };
+            if (args == null) args = new string[0]{  };
+
+#if DEBUG
+            Console.WriteLine("Debug log:");
+            foreach (string debugArg in args)
+                Console.WriteLine("\t" + debugArg);
+#endif
 
             if (args.Length == 0)
             {
@@ -168,7 +174,7 @@ namespace NetChains
                 string[] code = File.ReadAllLines(path);
 
                 if (code[0].ToLower().StartsWith("#name") && name == "")
-                    name = ArgSplit(code[0])[1];
+                    name = ArgSplit(code[0], " ", true)[1];
                 else if (name == "")
                     name = path.Substring(path.LastIndexOf('\\') + 1);
 
@@ -262,13 +268,13 @@ namespace NetChains
             return null;
         }
 
-        static string[] ArgSplit(string input)
+        static string[] ArgSplit(string input, string splitStr)
         {
-            return ArgSplit(input, " ");
+            return ArgSplit(input, splitStr, false);
         }
 
         //Parses arguments from a string, dealing with quotes and variables
-        static string[] ArgSplit(string input, string splitStr)
+        static string[] ArgSplit(string input, string splitStr, bool leaveQuotes)
         {
             List<string> retval = new List<string>();
 
@@ -296,16 +302,58 @@ namespace NetChains
                     continue;
                 }
 
-                if (c == '"' | c == '\'' | c == '`')
+                if (c == '\'')
                 {
                     if (isInQuote && c == quoteChar)
+                    {
                         isInQuote = false;
+                        if (leaveQuotes) arg += '\'';
+                    }
                     else if (isInQuote)
                         arg += c;
                     else if (!isInQuote)
                     {
                         isInQuote = true;
                         quoteChar = c;
+                        if (leaveQuotes) arg += '\'';
+                    }
+                    else throw new SanityException($"{c} is {(isInQuote ? " " : "not ")}in quotes");
+                    continue;
+                }
+
+                if (c == '"')
+                {
+                    if (isInQuote && c == quoteChar)
+                    {
+                        isInQuote = false;
+                        arg += leaveQuotes ? '"' : '\'';
+                    }
+                    else if (isInQuote)
+                        arg += c;
+                    else if (!isInQuote)
+                    {
+                        isInQuote = true;
+                        quoteChar = c;
+                        arg += leaveQuotes ? '"' : '\'';
+                    }
+                    else throw new SanityException($"{c} is {(isInQuote ? " " : "not ")}in quotes");
+                    continue;
+                }
+
+                if (c == '`')
+                {
+                    if (isInQuote && c == quoteChar)
+                    {
+                        isInQuote = false;
+                        arg += '`';
+                    }
+                    else if (isInQuote)
+                        arg += c;
+                    else if (!isInQuote)
+                    {
+                        isInQuote = true;
+                        quoteChar = c;
+                        arg += '`';
                     }
                     else throw new SanityException($"{c} is {(isInQuote ? " " : "not ")}in quotes");
                     continue;

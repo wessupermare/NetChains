@@ -19,7 +19,7 @@ namespace NetChains
                 return null;
             else if (input.ToLower().StartsWith("load"))
             {
-                string[] args = ArgSplit(input);
+                string[] args = ArgSplit(input, " ", true);
                 try
                 {
                     try { LoadFile(args[1], args[2]); }
@@ -45,11 +45,11 @@ namespace NetChains
             }
             else if (input.ToLower().StartsWith("run"))
             {
-                ExecFile(ArgSplit(input)[1]);
+                ExecFile(ArgSplit(input, " ", true)[1]);
             }
             else if (input.ToLower().StartsWith("exec"))
             {
-                string[] cmdString = ArgSplit(input);
+                string[] cmdString = ArgSplit(input, " ", true);
                 if (cmdString.Length > 2)
                     System.Diagnostics.Process.Start(cmdString[1], cmdString[2]);
                 else
@@ -71,7 +71,7 @@ namespace NetChains
             }
             else if (input.ToLower().StartsWith("$"))
             {
-                string[] args = ArgSplit(input);
+                string[] args = ArgSplit(input, " ", true);
 
                 if (args[1].StartsWith("!"))
                 {
@@ -110,7 +110,7 @@ namespace NetChains
             }
             else
             {
-                try { return Execute(ArgSplit(input, "::")); }
+                try { return Execute(ArgSplit(input, "::", true)); }
                 catch (Exception ex) { Console.WriteLine(ex.Message); }
             }
 
@@ -120,7 +120,7 @@ namespace NetChains
         private static void PreExecCommand(string preExec, string[] code)
         {
             List<string> args = new List<string>();
-            args.AddRange(ArgSplit(preExec));
+            args.AddRange(ArgSplit(preExec, " ", true));
 
             string method = args[0].ToLower();
             args.RemoveAt(0);
