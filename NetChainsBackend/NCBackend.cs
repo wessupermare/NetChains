@@ -17,7 +17,7 @@ namespace NetChainsBackend
         /// </summary>
         /// <param name="input">The command to execute</param>
         /// <returns>Any indirectly generated output or errors</returns>
-        public static string PreExec(string input)
+        public static string Execute(string input)
         {
             string retVal = "";
             input = input.Trim('\t', ' ', '\0', '\r', '\n');
@@ -80,8 +80,8 @@ namespace NetChainsBackend
 
                 if (args[1].StartsWith("!"))
                 {
-                    try { variables[args[0].TrimStart('$')] = PreExec(args[1]); }
-                    catch (KeyNotFoundException) { variables.Add(args[0].TrimStart('$'), PreExec(args[1])); }
+                    try { variables[args[0].TrimStart('$')] = Execute(args[1]); }
+                    catch (KeyNotFoundException) { variables.Add(args[0].TrimStart('$'), Execute(args[1])); }
                 }
                 else
                 {
@@ -227,12 +227,12 @@ namespace NetChainsBackend
         /// </summary>
         /// <param name="code"></param>
         /// <returns></returns>
-        private static string ExecMulti(string[] code)
+        public static string ExecMulti(string[] code)
         {
             return ExecMulti(code, null);
         }
 
-        private static string ExecMulti(string[] code, object parent)
+        public static string ExecMulti(string[] code, object parent)
         {
             List<string> retList = new List<string>();
             try
@@ -294,7 +294,7 @@ namespace NetChainsBackend
                 }
                 else
                 {
-                    if (curFunc.Contains("="))
+                    if (curFunc.Contains("=") && !curFunc.Contains("("))
                     {
                         List<object> args = null;
                         Type[] argTypes = null;
@@ -418,7 +418,8 @@ namespace NetChainsBackend
                         {
                             argTypes[cntr] = typeof(string);
                             if (((string)args[cntr]).Contains("$"))
-                                args[cntr] = ((string)args[cntr]).Replace("$", parent.ToString());
+                                try { args[cntr] = ((string)args[cntr]).Replace("$", parent.ToString()); }
+                                catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException) { }//throw new Exception("Are you sure you meant to use the parent var ($) here?"); }
                         }
                     }
                 }
@@ -603,7 +604,7 @@ namespace NetChainsBackend
 
                 foreach (string line in code)
                 {
-                    string output = PreExec(line);
+                    string output = Execute(line);
                     if (output != null && output != "") outputList.Add(output);
                 }
             }

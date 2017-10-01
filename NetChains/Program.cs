@@ -7,7 +7,7 @@ namespace NetChains
 {
     partial class Program
     {
-        const string VERSIONSTRING = "2.5.0";
+        const string VERSIONSTRING = "2.5.1";
 
         public static List<string> history = new List<string>();
 
@@ -33,8 +33,8 @@ namespace NetChains
                     Console.Write(">>>");
 
                     ConsoleKeyInfo CKI;
-                    string input = "";
-                    bool done = false;
+                    string input = "", blockCache = "";
+                    bool done = false, inBlockQuote = false;
                     history.Insert(0, "");
 
                     if (NCBackend.inBlock)
@@ -120,11 +120,24 @@ namespace NetChains
 
                             case ConsoleKey.Enter:
                                 Console.Write(Environment.NewLine);
-                                done = true;
+                                if (!inBlockQuote)
+                                {
+                                    done = true;
+                                }
+                                else
+                                {
+                                    history[0] = input;
+                                    blockCache += input + "\n";
+                                    input = "";
+                                    historyIndex = 0;
+                                    Console.Write(">>>");
+                                }
                                 break;
 
                             default:
                                 input = input.Insert(Console.CursorLeft - 3, CKI.KeyChar.ToString());
+                                if (CKI.KeyChar == '`')
+                                    inBlockQuote = !inBlockQuote;
                                 int cursorLeftBackup = Console.CursorLeft;
                                 Console.Write(input.Substring(Console.CursorLeft - 3));
                                 Console.CursorLeft = cursorLeftBackup + 1; //Restores cursor to user expected state
@@ -133,12 +146,11 @@ namespace NetChains
                         }
                     }
 
-                    history[0] = input;
-
                     if (input == "clear") Console.Clear();
                     else
-                        try { Console.WriteLine(NCBackend.PreExec(input)); }
+                        try { Console.WriteLine(NCBackend.Execute(blockCache.TrimStart('\0') + input)); }
                         catch (Exception ex) { Console.WriteLine(ex.Message); }
+                        finally { blockCache = ""; }
                 }
             }
             else
@@ -156,7 +168,7 @@ namespace NetChains
                 }
                 while (argList.Contains("-e"))
                 {
-                    Console.WriteLine(NCBackend.PreExec(argList[argList.IndexOf("-e") + 1]));
+                    Console.WriteLine(NCBackend.Execute(argList[argList.IndexOf("-e") + 1]));
                     argList.RemoveAt(argList.IndexOf("-e") + 1);
                     argList.RemoveAt(argList.IndexOf("-e"));
                 }
