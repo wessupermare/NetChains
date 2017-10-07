@@ -1,11 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 
 namespace NetChainsBackend
 {
-    public static class NCBackend
+    public static class Engine
     {
         public static bool inBlock = false;
         private static List<string> codeBlock = new List<string>();
@@ -59,10 +60,18 @@ namespace NetChainsBackend
             else if (input.ToLower().StartsWith("exec"))
             {
                 string[] cmdString = ArgSplit(input, " ", true);
+
+                Process process = new Process();
+                process.StartInfo.UseShellExecute = true;
+                process.StartInfo.FileName = cmdString[1];
                 if (cmdString.Length > 2)
-                    System.Diagnostics.Process.Start(cmdString[1], cmdString[2]);
-                else
-                    System.Diagnostics.Process.Start(cmdString[1]);
+                {
+                    string argstring = "";
+                    for (int i = 2; i < cmdString.Length; ++i)
+                        argstring += cmdString[i];
+                    process.StartInfo.Arguments = argstring;
+                }
+                process.Start();
             }
             else if (input.ToLower() == "help")
             {

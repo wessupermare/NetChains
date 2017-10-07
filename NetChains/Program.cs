@@ -7,7 +7,7 @@ namespace NetChains
 {
     partial class Program
     {
-        const string VERSIONSTRING = "2.5.1";
+        const string VERSIONSTRING = "2.5.2";
 
         public static List<string> history = new List<string>();
 
@@ -17,13 +17,16 @@ namespace NetChains
             Console.ResetColor();
 
             Console.WriteLine($"Welcome to the NetChains interpreter!\n(c) 2017 Weston Sleeman, version {VERSIONSTRING}\nType \"help\" for a brief tutorial or \"exit\" to return to the shell.\n");
-            if (args == null) args = new string[0]{  };
+            if (args == null) args = new string[0] { };
 
+            else
+            {
 #if DEBUG
-            Console.WriteLine("Debug log:");
-            foreach (string debugArg in args)
-                Console.WriteLine("\t" + debugArg);
+                Console.WriteLine("Debug log:");
+                foreach (string debugArg in args)
+                    Console.WriteLine("\t" + debugArg);
 #endif
+            }
 
             if (args.Length == 0)
             {
@@ -37,7 +40,7 @@ namespace NetChains
                     bool done = false, inBlockQuote = false;
                     history.Insert(0, "");
 
-                    if (NCBackend.inBlock)
+                    if (Engine.inBlock)
                     {
                         Console.Write('\t');
                         input = "     ";
@@ -148,7 +151,7 @@ namespace NetChains
 
                     if (input == "clear") Console.Clear();
                     else
-                        try { Console.WriteLine(NCBackend.Execute(blockCache.TrimStart('\0') + input)); }
+                        try { Console.WriteLine(Engine.Execute(blockCache.TrimStart('\0') + input)); }
                         catch (Exception ex) { Console.WriteLine(ex.Message); }
                         finally { blockCache = ""; }
                 }
@@ -160,7 +163,7 @@ namespace NetChains
 
                 while (argList.Contains("-p"))
                 {
-                    Console.WriteLine(NCBackend.ExecFile(argList[argList.IndexOf("-p") + 1]));
+                    Console.WriteLine(Engine.ExecFile(argList[argList.IndexOf("-p") + 1]));
                     argList.RemoveAt(argList.IndexOf("-p") + 1);
                     argList.RemoveAt(argList.IndexOf("-p"));
                     if (!argList.Contains("-e"))
@@ -168,14 +171,14 @@ namespace NetChains
                 }
                 while (argList.Contains("-e"))
                 {
-                    Console.WriteLine(NCBackend.Execute(argList[argList.IndexOf("-e") + 1]));
+                    Console.WriteLine(Engine.Execute(argList[argList.IndexOf("-e") + 1]));
                     argList.RemoveAt(argList.IndexOf("-e") + 1);
                     argList.RemoveAt(argList.IndexOf("-e"));
                 }
                 
                 foreach (string arg in argList)
                 {
-                    Console.WriteLine(NCBackend.ExecFile(arg));
+                    Console.WriteLine(Engine.ExecFile(arg));
                 }
             }
         }
