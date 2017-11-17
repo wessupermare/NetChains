@@ -13,37 +13,23 @@ namespace NetChainsBackend
         static private Dictionary<string, string> variables = new Dictionary<string, string>();
         static private Dictionary<string, string> scriptCache = new Dictionary<string, string>();
 
-
         /// <summary>
         /// Executes a provided NetChain
         /// </summary>
-        /// <param name="command">The command to execute</param>
+        /// <param name="input">The command to execute</param>
         /// <returns>Any indirectly generated output or errors</returns>
-        public static IEnumerable<string> Execute(string[] commands)
-        {
-            foreach (string command in commands)
-            {
-                yield return Execute(command);
-            }
-        }
-
-        /// <summary>
-        /// Executes a provided NetChain
-        /// </summary>
-        /// <param name="command">The command to execute</param>
-        /// <returns>Any indirectly generated output or errors</returns>
-        public static string Execute(string command)
+        public static string Execute(string input)
         {
             string retVal = "";
-            command = command.Trim('\t', ' ', '\0', '\r', '\n');
+            input = input.Trim('\t', ' ', '\0', '\r', '\n');
 
-            if (command.ToLower() == "exit")
+            if (input.ToLower() == "exit")
                 Environment.Exit(0);
-            else if (command == "")
+            else if (input == "")
                 return null;
-            else if (command.ToLower().StartsWith("load"))
+            else if (input.ToLower().StartsWith("load"))
             {
-                string[] args = ArgSplit(command, " ", true);
+                string[] args = ArgSplit(input, " ", true);
                 try
                 {
                     try { LoadFile(args[1], args[2]); }
@@ -67,13 +53,13 @@ namespace NetChainsBackend
                     catch (ArgumentException) { retVal += ($"Cannot find file {args[1]}\n"); }
                 }
             }
-            else if (command.ToLower().StartsWith("run"))
+            else if (input.ToLower().StartsWith("run"))
             {
-                ExecFile(ArgSplit(command, " ", true)[1]);
+                ExecFile(ArgSplit(input, " ", true)[1]);
             }
-            else if (command.ToLower().StartsWith("exec"))
+            else if (input.ToLower().StartsWith("exec"))
             {
-                string[] cmdString = ArgSplit(command, " ", true);
+                string[] cmdString = ArgSplit(input, " ", true);
 
                 Process process = new Process();
                 process.StartInfo.UseShellExecute = true;
@@ -87,7 +73,7 @@ namespace NetChainsBackend
                 }
                 process.Start();
             }
-            else if (command.ToLower() == "help")
+            else if (input.ToLower() == "help")
             {
                 retVal += ("NetChains is copyrighted by Weston Sleeman, but feel free to redistribute this executable in its original form.\n");
                 retVal += ("NetChains provides direct access to the .NET framework in a scriptable and chain-y format.\n");
@@ -97,9 +83,9 @@ namespace NetChainsBackend
                 retVal += ("(Selects to System.ConsoleColor; Accesses member Red; Shifts to System.Console; Sets ForegroundColor to the parent ($, currently Red); Writes Hello to screen; Resets colors)\n");
                 retVal += ("\nFor more complete documentation, go to https://github.com/wessupermare/NetChains/wiki\n");
             }
-            else if (command.ToLower().StartsWith("$"))
+            else if (input.ToLower().StartsWith("$"))
             {
-                string[] args = ArgSplit(command, " ", true);
+                string[] args = ArgSplit(input, " ", true);
 
                 if (args[1].StartsWith("!"))
                 {
@@ -113,17 +99,17 @@ namespace NetChainsBackend
                     catch (ArgumentException) { variables[args[0].TrimStart('$')] = args[1]; }
                 }
             }
-            else if (command.ToLower().StartsWith("#loop") || command.ToLower().StartsWith("#if") || command.ToLower().StartsWith("#use"))
+            else if (input.ToLower().StartsWith("#loop") || input.ToLower().StartsWith("#if") || input.ToLower().StartsWith("#use"))
             {
                 codeBlock = new List<string>();
                 inBlock = true;
-                codeBlock.Add(command);
+                codeBlock.Add(input);
             }
-            else if (command.StartsWith("#"))
+            else if (input.StartsWith("#"))
             {
-                PreExecCommand(command, null);
+                PreExecCommand(input, null);
             }
-            else if (inBlock && command.ToLower() == "end")
+            else if (inBlock && input.ToLower() == "end")
             {
                 string preCom = codeBlock[0];
                 codeBlock.RemoveAt(0);
@@ -134,11 +120,11 @@ namespace NetChainsBackend
             }
             else if (inBlock)
             {
-                codeBlock.Add(command);
+                codeBlock.Add(input);
             }
             else
             {
-                try { return ExecuteIn(ArgSplit(command, "::", true)); }
+                try { return Execute(ArgSplit(input, "::", true)); }
                 catch (Exception ex) { retVal += (ex.Message + "\n"); }
             }
 
@@ -250,7 +236,7 @@ namespace NetChainsBackend
         /// </summary>
         /// <param name="code"></param>
         /// <returns></returns>
-        private static string ExecMulti(string[] code)
+        public static string ExecMulti(string[] code)
         {
             return ExecMulti(code, null);
         }
@@ -265,7 +251,7 @@ namespace NetChainsBackend
                     if (line == "exit")
                         break;
 
-                    retList.Add(ExecuteIn(ArgSplit(line, "::"), parent));
+                    retList.Add(Execute(ArgSplit(line, "::"), parent));
                 }
             }
             catch (Exception Ex) { return (Ex.Message); }
@@ -277,12 +263,12 @@ namespace NetChainsBackend
             return retVal.Trim('\n');
         }
 
-        private static string ExecuteIn(string[] function)
+        private static string Execute(string[] function)
         {
-            return ExecuteIn(function, null);
+            return Execute(function, null);
         }
 
-        private static string ExecuteIn(string[] functionIn, object obj)
+        private static string Execute(string[] functionIn, object obj)
         {
             for (int cntr = 0; cntr < functionIn.Length; ++cntr)
                 functionIn[cntr] = functionIn[cntr].TrimStart('\t', ' ', '\n', '\r', '\0').TrimEnd('\t', ' ', '\n', '\r', '\0');
