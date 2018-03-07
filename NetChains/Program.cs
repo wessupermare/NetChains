@@ -7,7 +7,7 @@ namespace NetChains
 {
     partial class Program
     {
-        const string VERSIONSTRING = "2.5.3";
+        const string VERSIONSTRING = "2.5.4";
 
         public static List<string> history = new List<string>();
 
@@ -16,7 +16,7 @@ namespace NetChains
             Console.Clear();
             Console.ResetColor();
 
-            Console.WriteLine($"Welcome to the NetChains interpreter!\n(c) 2017 Weston Sleeman, version {VERSIONSTRING}\nType \"help\" for a brief tutorial or \"exit\" to return to the shell.\n");
+            Console.WriteLine($"Welcome to the NetChains interpreter!\n(c) {DateTime.Now.Year} Weston Sleeman, version {VERSIONSTRING}\nType \"help\" for a brief tutorial or \"exit\" to return to the shell.\n");
             if (args == null) args = new string[0] {};
 
             else
