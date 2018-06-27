@@ -16,8 +16,12 @@ namespace NCI
         {
             Assembly.Load("System");
 
-            Console.Clear();
-            Console.ResetColor();
+            try
+            {
+                Console.Clear();
+                Console.ResetColor();
+            }
+            catch (System.IO.IOException) { return; } // No console present!
 
             Console.WriteLine($"Welcome to the NetChains interpreter!\n(c) {DateTime.Now.Year} Weston Sleeman, version {VERSIONSTRING}\nType \"help\" for a brief tutorial or \"exit\" to return to the shell.\n");
             if (args == null) args = new string[0] { };
